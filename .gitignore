@@ -1,0 +1,6 @@
+.DS_Store
+
+.pyc
+
+real_results
+__pycache__
