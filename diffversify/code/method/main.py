@@ -7,19 +7,20 @@ import torch.distributions as tdist
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
 
+from torch.utils.tensorboard import SummaryWriter
 
 import os
 
 import numpy as np
 import math
 
-import dataLoader as mydl
-import my_layers as myla
-import my_loss as mylo
-import network as mynet
+import method.dataLoader as mydl
+import method.my_layers as myla
+import method.my_loss as mylo
+import method.network as mynet
 
 
-def main():
+def main(arg=None):
     # Training settings
     parser = argparse.ArgumentParser(description='Binary Pattern Network implementation')
     parser.add_argument('-i','--input', required=True,
@@ -49,8 +50,11 @@ def main():
     parser.add_argument('--thread_num', type=int, default=12,
                         help='number of threads to use (default: 16)')
     parser.add_argument('-o','--output', default="",
-                        help='Output file to use for training and testing')
-    args = parser.parse_args()
+                        help='Output directory to use for training and testing')
+    args = parser.parse_args(arg)
+
+    writer = SummaryWriter(log_dir=args.output, )
+    writer.add_text('Run info', f'Hyperparameters: {args.__dict__}')
 
     torch.manual_seed(args.seed)
 
@@ -63,7 +67,7 @@ def main():
     else:
         device_gpu = torch.device("cuda")
 
-    model, weights, train_data = mynet.learn(args.input, args.lr, args.gamma, args.weight_decay, args.epochs, args.hidden_dim, args.train_set_size, args.batch_size, args.test_batch_size, args.log_interval, device_cpu, device_gpu)
+    model, weights, train_data = mynet.learn(args.input, args.lr, args.gamma, args.weight_decay, args.epochs, args.hidden_dim, args.train_set_size, args.batch_size, args.test_batch_size, args.log_interval, device_cpu, device_gpu, writer=writer)
 
     if args.save_model:
         torch.save(model.state_dict(), "ternary_net.pt")
@@ -73,7 +77,7 @@ def main():
         print("\n\n\nPatterns:\n")
         if args.output=="":
             args.output = args.input[:-4] + '.binaps.patterns'
-        with open(args.output, 'w') as patF:
+        with open(os.path.join(args.output, 'result.txt'), 'w') as patF:
             for hn in myla.BinarizeTensorThresh(weights, .2):
                 pat = torch.squeeze(hn.nonzero())
                 supp_full = (train_data.matmul(hn.cpu()) == hn.sum().cpu()).sum().cpu().numpy()

@@ -42,7 +42,7 @@ class Net(nn.Module):
         self.act3.noBias()
 
 
-def train(model, device_cpu, device_gpu, train_loader, optimizer, lossFun, epoch, log_interval, writer):
+def train(model, device_cpu, device_gpu, train_loader, optimizer, lossFun, epoch, log_interval, writer=None):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data = data.to(device_gpu)
@@ -96,7 +96,7 @@ def test(model, epoch, device_cpu, device_gpu, test_loader, lossFun, writer=None
         100. * correct / numel))
 
 
-def learn(input, lr, gamma, weight_decay, epochs, hidden_dim, train_set_size, batch_size, test_batch_size, log_interval, device_cpu, device_gpu):
+def learn(input, lr, gamma, weight_decay, epochs, hidden_dim, train_set_size, batch_size, test_batch_size, log_interval, device_cpu, device_gpu, writer=None):
 
 
     kwargs = {}
@@ -118,13 +118,13 @@ def learn(input, lr, gamma, weight_decay, epochs, hidden_dim, train_set_size, ba
     model = Net(new_weights, bInit, trainDS.getSparsity(), device_cpu, device_gpu).to(device_gpu)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    lossFun = mylo.weightedXor(trainDS.getSparsity(), weight_decay, device_gpu)
+    lossFun = mylo.weightedXorVanilla(trainDS.getSparsity(), weight_decay, device_gpu)
 
     scheduler = MultiStepLR(optimizer, [5,7], gamma=gamma)
     for epoch in range(1, epochs + 1):
-        train(model, device_cpu, device_gpu, train_loader, optimizer, lossFun, epoch, log_interval)
+        train(model, device_cpu, device_gpu, train_loader, optimizer, lossFun, epoch, log_interval, writer=writer)
 
-        test(model, device_cpu, device_gpu, test_loader, lossFun)
+        test(model, epoch, device_cpu, device_gpu, test_loader, lossFun, writer=writer)
         scheduler.step()
 
     with torch.no_grad():
