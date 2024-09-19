@@ -22,7 +22,7 @@ def main(args=None):
                         help='Input file to use for training and testing (.dat format)')
     parser.add_argument('-l','--label', required=False,
                         help='Input label to use for training and testing (.dat format)')
-    parser.add_argument('-m','--model', required=True,
+    parser.add_argument('-m','--method', required=True,
                         help='Which model to use : [diffversify, binaps, diffnaps]')
     parser.add_argument('-o','--output', default="",
                         help='Output directory')
@@ -88,6 +88,25 @@ def main(args=None):
     args = parser.parse_args(args)
     NOW = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     log = logging.basicConfig(level=logging.INFO, filename=os.path.join(args.output, f'diffversify_{NOW}.log'))
+    # Create a custom log
+    log = logging.getLogger(__name__)
+    log.propagate = False
+    # Set the log level
+    log.setLevel(logging.DEBUG)
+    # Create a console handler and set the log level
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    # Create a formatter and set it for the handler
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s: %(message)s')
+    ch.setFormatter(formatter)
+    # Add the handler to the log
+    log.addHandler(ch)
+    fl = logging.FileHandler(filename=os.path.join(args.output, f'diffversify_{NOW}.log'))
+    fl.setFormatter(formatter)
+    fl.setLevel(logging.DEBUG)
+    log.addHandler(fl)
+
+    log.info('init')
     log.debug(f'ARGS : {args.__dict__}')
     
     if not torch.cuda.is_available():
@@ -97,21 +116,25 @@ def main(args=None):
         device = torch.device("cuda")
     log.info(f'Running on {device}')
 
-    config = TrainConfig(args.__dict__)
+    config = TrainConfig().lazy_load_from_dict(args.__dict__)
+    log.debug(config.__dict__)
 
 
     # load data
     log.info(f'Loading data : {args.input}')
     path_data = os.path.join(args.input)
     data = readDatFile(args.input)
-    data = data.to_numpy().astype(np.float32)
 
     log.info(f'Loading labels : {args.label}')
     with open(args.label, 'r') as fd: 
        labels = fd.read().split('\n')
+    
     labels = np.array(labels).reshape(-1)
 
-    label_dict = {i : str(i) for i in np.unique(labels)}
+    label_dict = {lab : i for i, lab in enumerate(np.unique(labels))}
+    labels = np.array([label_dict[lab] for lab in labels])
+    label_dict = {v: k for k, v in label_dict.items()}
+
     translator = [i for i in range(data.shape[1])]
     writer = SummaryWriter(log_dir=args.output)
     writer.add_text('Run info', 'Hyperparameters:' + config.to_str())
@@ -162,7 +185,7 @@ def main(args=None):
 
     for key, value in metric_result.items():
         if key != "method" and key != 'db' and key != 'NMF':
-            writer.add_scalar(key, value, id)
+            writer.add_scalar(key, value)
 
     # dr = pd.DataFrame({'x':line_x, 'y':line_y})
     # dr.to_csv(os.path.join(args.output, 'auc_roc_data_noNMF.csv'))
@@ -192,7 +215,6 @@ def main(args=None):
 
             file = rf"{os.path.basename(args.input)}_{args.method}.xlsx"
             df_metric.to_excel(os.path.join(args.output, file),index=False)
-            df = pd.concat([df, df_metric], ignore_index=True)
 
     log.info(f'Time taken = {time_taken}')
 
@@ -200,11 +222,11 @@ def main(args=None):
     writer.close()
 
     file = rf"{os.path.basename(args.input)}.xlsx"
-    df.to_excel(os.path.join(args.output, file),index=False)
     log.info(f"Saved result in {os.path.join(args.output, file)}")
 
 
 
 
 if __name__ == "__main__":
-    argu="-i C:\Users\chataint\Documents\projet\diffversify\runs\data.dat -o C:\Users\chataint\Documents\projet\diffversify\runs\out -m binaps"
+   pass
+    # argu="-i C:\Users\chataint\Documents\projet\diffversify\runs\data.dat -o C:\Users\chataint\Documents\projet\diffversify\runs\out -m binaps"

@@ -309,14 +309,15 @@ def learn_diffnaps_net(data, config, labels = None, ret_test=False, verbose=True
     trainDS = mydl.DiffnapsDatDataset("file", config.train_set_size, True, device_cpu, data=data_copy, labels = labels_copy)
     train_loader = torch.utils.data.DataLoader(trainDS, batch_size=config.batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(mydl.DiffnapsDatDataset("file", config.train_set_size, False, device_cpu, data=data_copy, labels = labels_copy), batch_size=config.test_batch_size, shuffle=True)
-    
+
+    hidden_dim = config.hidden_dim
     if config.hidden_dim == -1:
         hidden_dim = trainDS.ncol()
-        
-    new_weights = torch.zeros(config.hidden_dim, trainDS.ncol(), device=device_gpu)
+
+    new_weights = torch.zeros(hidden_dim, trainDS.ncol(), device=device_gpu)
     initWeights(new_weights, trainDS.data)
     new_weights.clamp_(1/(trainDS.ncol()), 1)
-    bInit = torch.zeros(config.hidden_dim, device=device_gpu)
+    bInit = torch.zeros(hidden_dim, device=device_gpu)
     init.constant_(bInit, -1)
     
     model = config.model(new_weights, np.max(labels_copy)+1, bInit, trainDS.getSparsity(), device_cpu, device_gpu, config=config).to(device_gpu)

@@ -10,6 +10,11 @@ import numpy as np
 from utils.measures import *
 import method.my_layers as myla
 import method.my_loss as mylo
+from method.diffnaps import *
+
+import logging
+
+log = logging.getLogger(__name__)
 
 import json
 
@@ -165,7 +170,7 @@ class TrainConfig():
                        weight_decay = 0.05, wd_class=0.00, binaps=False, lambda_c=1.0,
                        spike_weight=0.0, vertical_decay=0.0, sparse_regu=0.0, elb_lamb=0.0, elb_k=0.0,
                        class_elb_k = 0.0, class_elb_lamb = 0.0, regu_rate = 1.0, class_regu_rate = 1.0,model=DiffnapsNet, 
-                       loss=mylo.weightedXor, alpha=0,
+                       loss=mylo.weightedXor, alpha=0,t1=0.1, t2=0.1,
                         test=False, init_enc="", save_xp=False, k_f=15, k_w=15):
         self.train_set_size = train_set_size
         self.batch_size = batch_size
@@ -198,7 +203,26 @@ class TrainConfig():
         self.init_enc = init_enc
         self.save_xp = save_xp
         self.k_f = k_f
+        self.t1=t1
+        self.t2=t2
         self.k_w = k_w
+
+    def lazy_load_from_dict(self,dico: dict):
+        for key, value in dico.items():
+            if key in self.__dict__.keys():
+                setattr(self, key, value)
+            else :
+                log.debug(f"{key} not in TrainConfig")
+                
+        if dico['method'] == 'binaps':
+            self.binaps = True
+        # elif dico['method'] == 'diffnaps':
+        elif dico['method'] == 'diffversify':
+            self.loss = mylo.weightedXorCover
+        
+        return self
+                
+                
 
     def to_str(self):
         ret = self.__dict__.copy()
