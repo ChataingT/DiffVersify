@@ -14,6 +14,25 @@ from method.network import learn_xp_binaps
 from method.dataLoader import readDatFile
 from utils.utils_base import TrainConfig, get_positional_patterns, get_positional_patterns_binaps, mean_compute_metric, compile_new_pat_by_class
 from utils.experiment_utils import roc, res_to_csv, write_time
+    
+NOW = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+# Create a custom log
+log = logging.getLogger('root')
+# log.propagate = False
+# Set the log level
+log.setLevel(logging.DEBUG)
+# Create a console handler and set the log level
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+# Create a formatter and set it for the handler
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s: %(message)s')
+ch.setFormatter(formatter)
+# Add the handler to the log
+log.addHandler(ch)
+
+
+log.info('init')
+
 
 def main(args=None):
     # Training settings
@@ -84,39 +103,27 @@ def main(args=None):
     parser.add_argument('--thread_num', type=int, default=16,
                         help='number of threads to use (default: 16)')
     
-
     args = parser.parse_args(args)
-    NOW = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log = logging.basicConfig(level=logging.INFO, filename=os.path.join(args.output, f'diffversify_{NOW}.log'))
-    # Create a custom log
-    log = logging.getLogger(__name__)
-    log.propagate = False
-    # Set the log level
-    log.setLevel(logging.DEBUG)
-    # Create a console handler and set the log level
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    # Create a formatter and set it for the handler
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s: %(message)s')
-    ch.setFormatter(formatter)
-    # Add the handler to the log
-    log.addHandler(ch)
-    fl = logging.FileHandler(filename=os.path.join(args.output, f'diffversify_{NOW}.log'))
+    output = os.path.join(args.output, NOW)
+
+    config = TrainConfig().lazy_load_from_dict(args.__dict__)
+    
+    writer = SummaryWriter(output)
+    writer.add_text('Run info', 'Hyperparameters:' + config.to_str())
+    
+    fl = logging.FileHandler(filename=os.path.join(output, f'{args.method}.log'))
     fl.setFormatter(formatter)
     fl.setLevel(logging.DEBUG)
     log.addHandler(fl)
-
-    log.info('init')
     log.debug(f'ARGS : {args.__dict__}')
     
     if not torch.cuda.is_available():
         device = torch.device("cpu")
-        log.warningnfo("WARNING: Running purely on CPU. Slow.")
+        log.warning("WARNING: Running purely on CPU. Slow.")
     else:
         device = torch.device("cuda")
-    log.info(f'Running on {device}')
+        log.info(f'Running on {device}')
 
-    config = TrainConfig().lazy_load_from_dict(args.__dict__)
     log.debug(config.__dict__)
 
 
@@ -136,48 +143,50 @@ def main(args=None):
     label_dict = {v: k for k, v in label_dict.items()}
 
     translator = [i for i in range(data.shape[1])]
-    writer = SummaryWriter(log_dir=args.output)
-    writer.add_text('Run info', 'Hyperparameters:' + config.to_str())
 
     start_time = time.time()
-    # Train diffnaps 
-    # model, new_weights, trainDS = learn_diffnaps_net(data,conf,labels = labels)
-    # Train diffnaps
     if args.method == "binaps":
-            model, new_weights, trainDS, test_loader = learn_xp_binaps(data, config, labels = labels,ret_test=True, writer=writer, verbose=False)
+            log.info("Training with BiNaps")
+            model, new_weights, trainDS, test_loader = learn_xp_binaps(data, config, labels = labels,ret_test=True, writer=writer, verbose=True)
     else:
-            model, new_weights, trainDS, test_loader = learn_diffnaps_net(data, config, labels = labels,ret_test=True,verbose=False, writer=writer)
+            log.info(f"Training with {args.method}")
+            model, new_weights, trainDS, test_loader = learn_diffnaps_net(data, config, labels = labels,ret_test=True,verbose=True, writer=writer)
                     
     time_taken = time.time() - start_time
     time_taken = time_taken / 60
     enc_w = model.fc0_enc.weight.data.detach().cpu()
     
     if config.save_xp:
-            file = os.path.join(args.output, "model_weight.pt")
+            log.debug(f"Save XP to {output}")
+            file = os.path.join(output, "model_weight.pt")
             torch.save(enc_w, file)
-            file = os.path.join(args.output, "data")
+            file = os.path.join(output, "data")
             np.save(file,data)
-            file = os.path.join(args.output, "labels")
+            file = os.path.join(output, "labels")
             np.save(file, labels)
 
     
     if args.method == 'binaps':
-            _,_,_,num_pat,res_dict, gen_patterns = get_positional_patterns_binaps(weights=enc_w,data=data, labels=labels, general=True)
-
+        log.info("Extracting pattern for BiNaps")
+        _,_,_,num_pat,res_dict, gen_patterns = get_positional_patterns_binaps(weights=enc_w,data=data, labels=labels, general=True)
     else:
+        log.info(f"Extracting pattern for {args.method}")
         c_w = model.classifier.weight.detach().cpu()
         if config.save_xp:
-            file = os.path.join(args.output, "classif_weight.pt")
+            file = os.path.join(output, "classif_weight.pt")
             torch.save(c_w, file)
         _,_,_,num_pat,res_dict, gen_patterns = get_positional_patterns(enc_w,c_w, general=True, t_mean=1, t1=config.t1,t2=config.t2, device=device)
+                                                                      
                     
-    # extract the differntial patterns, t1 is t_e and t2 is t_c 
-    # _,_,_,num_pat,res_dict, _ = get_positional_patterns(enc_w,c_w, general=True, t_mean=1.0,  t1=conf.t1,t2=conf.t2)
-    
-    
+    res_dict_int = {int(k):v for k,v in res_dict.items()}
+    res_to_csv(args.method, os.path.basename(args.input), res_dict_int, data, labels, label_dict, translator, output=output)
+
+    log.info("Get metrics without NMF")
     metric_result = {'method':args.method, 'db':os.path.basename(args.input), 'ktop':0, 'NMF':'_'}
     metric_result.update(mean_compute_metric(data, labels, res_dict, device=device))
-    res_dict_int = {int(k):v for k,v in res_dict.items()}
+    if metric_result['pat_count']==0:
+        logging.error('ALERT ! No pattern found !')
+        return
     # line_x, line_y, auc = roc(res_dict_int, data,labels,label_dict,translator,verbose=False)
     # metric_result['roc_auc'] = auc
     
@@ -185,44 +194,40 @@ def main(args=None):
 
     for key, value in metric_result.items():
         if key != "method" and key != 'db' and key != 'NMF':
-            writer.add_scalar(key, value)
+            writer.add_scalar(key, value,0)
 
     # dr = pd.DataFrame({'x':line_x, 'y':line_y})
-    # dr.to_csv(os.path.join(args.output, 'auc_roc_data_noNMF.csv'))
+    # dr.to_csv(os.path.join(output, 'auc_roc_data_noNMF.csv'))
 
-    res_to_csv(args.method, os.path.basename(args.input), res_dict_int, data, labels, label_dict, translator, output=args.output)
 
 
     if args.method == 'diffversify':
-            new_p = compile_new_pat_by_class(labels=labels, patterns=res_dict, data=data, n=[2], device=device, max_iter=500, rank=config.k_f)
+        log.info("NMF for DiffVersify with /!\ HARDCODED TOP-k = 2")
+        new_p = compile_new_pat_by_class(labels=labels, patterns=res_dict, data=data, n=[2], device=device, max_iter=500, rank=config.k_f)
 
-            for keyk, val in new_p.items():
+        for keyk, val in new_p.items():
 
-                metric_result = {'method':args.method,'db':os.path.basename(args.input), 'ktop':keyk, 'NMF':'filter'}
-                metric_result.update(mean_compute_metric(data, labels, val, device=device))
-                res_dict_int = {int(k):v for k,v in val.items()}
-                # line_x, line_y, auc = roc(res_dict_int, data,labels,label_dict,translator,verbose=False)
-                # metric_result['roc_auc'] = auc
-                df_metric = pd.concat([df_metric, pd.DataFrame(metric_result, index=[0])], ignore_index=True)
-                
-                for key, value in metric_result.items():
-                    if key != "method" and key != 'db' and key != 'NMF':
-                                writer.add_scalar(key, value, keyk)
+            metric_result = {'method':args.method,'db':os.path.basename(args.input), 'ktop':keyk, 'NMF':'filter'}
+            metric_result.update(mean_compute_metric(data, labels, val, device=device))
+            res_dict_int = {int(k):v for k,v in val.items()}
+            # line_x, line_y, auc = roc(res_dict_int, data,labels,label_dict,translator,verbose=False)
+            # metric_result['roc_auc'] = auc
+            df_metric = pd.concat([df_metric, pd.DataFrame(metric_result, index=[0])], ignore_index=True)
+            
+            for key, value in metric_result.items():
+                if key != "method" and key != 'db' and key != 'NMF':
+                            writer.add_scalar(key, value, keyk)
 
-                # dr = pd.DataFrame({'x':line_x, 'y':line_y})
-                # dr.to_csv(os.path.join(args.output, f'auc_roc_data_NMF_filter_{keyk}.csv'))
-            res_to_csv(args.method, os.path.basename(args.input)+'_NMF', res_dict_int, data, labels, label_dict, translator, output=args.output)
+            # dr = pd.DataFrame({'x':line_x, 'y':line_y})
+            # dr.to_csv(os.path.join(output, f'auc_roc_data_NMF_filter_{keyk}.csv'))
+            res_to_csv(args.method, os.path.basename(args.input)+'_NMF'+str(keyk), res_dict_int, data, labels, label_dict, translator, output=output)
 
-            file = rf"{os.path.basename(args.input)}_{args.method}.xlsx"
-            df_metric.to_excel(os.path.join(args.output, file),index=False)
+        file = rf"{os.path.basename(args.input)}_{args.method}.xlsx"
+        df_metric.to_excel(os.path.join(output, file),index=False)
 
     log.info(f'Time taken = {time_taken}')
-
-            
     writer.close()
 
-    file = rf"{os.path.basename(args.input)}.xlsx"
-    log.info(f"Saved result in {os.path.join(args.output, file)}")
 
 
 

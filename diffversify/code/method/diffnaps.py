@@ -3,6 +3,7 @@ import sys
 sys.path.append("./")
 sys.path.append("../")
 import torch
+import logging
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -15,7 +16,7 @@ import method.my_loss as mylo
 
 
 
-
+log = logging.getLogger(__name__)
 ## not used
 def initWeights(w, data):
     init.constant_(w, 0.01) 
@@ -36,12 +37,12 @@ class DiffnapsNet(nn.Module):
         self.classifier = nn.Linear(hidden_dim, label_dim,bias=False) #  corresponds to W^c
 
         if config.init_enc=="bimodal":
-            print("BiModal")
+            log.debug("BiModal")
             init_bi_modal(self.classifier.weight,0.25,0.75,0.1, device_cpu)
         else: 
             torch.nn.init.xavier_normal_(self.classifier.weight)
         self.bin_classifier = nn.Linear(hidden_dim, label_dim,bias=False)
-        print(self.fc0_enc.weight.mean())
+        log.debug(self.fc0_enc.weight.mean())
 
 
 
@@ -88,6 +89,7 @@ class DiffnapsNet(nn.Module):
         classification_loss = nn.CrossEntropyLoss()
         lossFun.config = config
         # print_gpu(1)
+        epoch_loss = 0
         for batch_idx, (data, target) in enumerate(train_loader):
             step = (epoch-1) * len(train_loader) + batch_idx
 
@@ -106,14 +108,14 @@ class DiffnapsNet(nn.Module):
             horizontal_L2_class =  mylo.horizontal_L2_class(config.wd_class, c_w, None)
 
             loss = recon_loss + config.lambda_c * c_loss + elb_regu_cl + horizontal_L2_class
-
+            epoch_loss += loss
             loss.backward()
             optimizer.step()
             self.clipWeights()
-            if batch_idx % log_interval == 0 and verbose:
-                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, batch_idx * len(data), len(train_loader.dataset),
-                    100. * batch_idx / len(train_loader), loss.item()))
+            # if batch_idx % log_interval == 0 and verbose:
+            #     log.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            #         epoch, batch_idx * len(data), len(train_loader.dataset),
+            #         100. * batch_idx / len(train_loader), loss.item()))
             if writer:
                 writer.add_scalar(f'c_loss/train/*{config.lambda_c}', c_loss.item(), step)
                 writer.add_scalar('elb_regu_class/train', elb_regu_cl.item(), step)
@@ -123,7 +125,7 @@ class DiffnapsNet(nn.Module):
                 for key, val in details.items():
                     writer.add_scalar(key+'/train', val, step)
             optimizer.zero_grad()
-        #print("End")
+        log.debug(f"Training epoch {epoch} : Loss = {epoch_loss / batch_idx}")
         return
 
 def init_bi_modal(weight,m1,m2,std, device):
@@ -172,7 +174,9 @@ def test(model, epoch, device_cpu, device_gpu, test_loader, lossFun, verbose=Tru
 
     _, target = next(iter(test_loader))
     if verbose:
-        print('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
+        log.info('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
+    else:    
+        log.debug('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
     
 
 
@@ -200,14 +204,12 @@ def test_bin(model, device_cpu, device_gpu, test_loader, t_enc=0.3, t_class=0.9)
             correct_class += torch.sum(torch.argmax(classification.softmax(dim=1),dim=1)==target)
             rows += target.numel()
             classi = torch.argmax(classification.softmax(dim=1),dim=1)
-            #print(classi.shape)
-            #print(target[ind].shape)
             ind = torch.argmax(classification.softmax(dim=1),dim=1)!=target
             incorret.append(data[ind].cpu().numpy())
             gt.append(target[ind].cpu().numpy())
             incorret_pred.append(classi[ind].cpu().numpy())
     _, target = next(iter(test_loader))
-    print('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
+    log.info('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
     return incorret, incorret_pred, gt
 
 def test_c_bin(model, device_cpu, device_gpu, test_loader, t_enc=0.3, t_class=0.9):
@@ -233,14 +235,12 @@ def test_c_bin(model, device_cpu, device_gpu, test_loader, t_enc=0.3, t_class=0.
             correct_class += torch.sum(torch.argmax(classification.softmax(dim=1),dim=1)==target)
             rows += target.numel()
             classi = torch.argmax(classification.softmax(dim=1),dim=1)
-            #print(classi.shape)
-            #print(target[ind].shape)
             ind = torch.argmax(classification.softmax(dim=1),dim=1)!=target
             incorret.append(data[ind].cpu().numpy())
             gt.append(target[ind].cpu().numpy())
             incorret_pred.append(classi[ind].cpu().numpy())
     _, target = next(iter(test_loader))
-    print('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
+    log.info('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
     return incorret, incorret_pred, gt
 
 def test_normal(model, device_cpu, device_gpu, test_loader):
@@ -266,14 +266,12 @@ def test_normal(model, device_cpu, device_gpu, test_loader):
             correct_class += torch.sum(torch.argmax(classification.softmax(dim=1),dim=1)==target)
             rows += target.numel()
             classi = torch.argmax(classification.softmax(dim=1),dim=1)
-            #print(classi.shape)
-            #print(target[ind].shape)
             ind = torch.argmax(classification.softmax(dim=1),dim=1)!=target
             incorret.append(data[ind].cpu().numpy())
             gt.append(target[ind].cpu().numpy())
             incorret_pred.append(classi[ind].cpu().numpy())
     _, target = next(iter(test_loader))
-    print('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
+    log.info('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
     return incorret, incorret_pred, gt
 
 def update_elb(config):
@@ -286,8 +284,7 @@ def print_gpu(debug=0):
     t = torch.cuda.get_device_properties(0).total_memory
     r = torch.cuda.memory_reserved(0)
     f = (t-r)/1024/1024
-    #print("Position %d"%debug)
-    #print(round(f,2))
+    log.debug(f"Total memory:{t}\tReserved memory {r}\t{f}")
 
 def learn_diffnaps_net(data, config, labels = None, ret_test=False, verbose=True, writer=None):
     torch.manual_seed(config.seed)
@@ -296,9 +293,11 @@ def learn_diffnaps_net(data, config, labels = None, ret_test=False, verbose=True
 
     if not torch.cuda.is_available():
         device_gpu = device_cpu
-        print("WARNING: Running purely on CPU. Slow.")
+        log.warning("WARNING: Running purely on CPU. Slow.")
     else:
         device_gpu = torch.device("cuda")
+        log.info(f"Device CUDA : {device_gpu}")
+
     if labels is None:
         data_copy = np.copy(data)[:,:-2]
         labels_copy = (data[:,-2] + 2*data[:,-1]).astype(int)
@@ -306,12 +305,14 @@ def learn_diffnaps_net(data, config, labels = None, ret_test=False, verbose=True
         data_copy = data
         labels_copy = labels
     
+    log.info('Load data')
     trainDS = mydl.DiffnapsDatDataset("file", config.train_set_size, True, device_cpu, data=data_copy, labels = labels_copy)
     train_loader = torch.utils.data.DataLoader(trainDS, batch_size=config.batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(mydl.DiffnapsDatDataset("file", config.train_set_size, False, device_cpu, data=data_copy, labels = labels_copy), batch_size=config.test_batch_size, shuffle=True)
 
     hidden_dim = config.hidden_dim
     if config.hidden_dim == -1:
+        log.debug('Generic hidden dim')
         hidden_dim = trainDS.ncol()
 
     new_weights = torch.zeros(hidden_dim, trainDS.ncol(), device=device_gpu)
@@ -329,8 +330,8 @@ def learn_diffnaps_net(data, config, labels = None, ret_test=False, verbose=True
     scheduler = MultiStepLR(optimizer, [5,7], gamma=config.gamma)
 
     print_gpu()
+    log.info(f'Starting training for {config.epochs}')
     for epoch in range(1, config.epochs + 1):
-        #print(model.fc0_enc.weight.data.mean())
         model.learn(device_cpu, device_gpu, train_loader, optimizer, lossFun, epoch, config.log_interval, config, verbose=verbose, writer=writer)
         test(model, epoch,  device_cpu, device_gpu, test_loader, lossFun,verbose=verbose, writer=writer)
         scheduler.step()

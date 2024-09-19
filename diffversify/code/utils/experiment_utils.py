@@ -6,7 +6,10 @@ import pandas as pd
 from utils.measures import *
 import numpy as np
 import json
+import logging
 
+
+log = logging.getLogger(__name__)
 
 #################### General #####################
 
@@ -113,7 +116,7 @@ def res_to_csv(method, dataname, res_dict, data,labels,label_dict,translator,ver
     folder = os.path.join("../results/real_results/",method)
     if output:
         folder = output
-    print(folder)
+    log.debug(f"Result to CVS saved in {folder}")
     if not os.path.exists(folder):
         os.mkdir(folder)
 

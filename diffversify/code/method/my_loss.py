@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 import math
+import logging
+
+log = logging.getLogger(__name__)
 
 class VanillaWeightedXor(nn.Module):
 
@@ -10,8 +13,7 @@ class VanillaWeightedXor(nn.Module):
         self.weight = weight
         ## decay rate
         self.weight_decay = weight_decay
-        print("Data Sparsity:")
-        print(self.weight)
+        log.debug(f"Data Sparsity: {self.weight}")
 
     def forward(self, output, target, w):
 
@@ -35,8 +37,8 @@ class weightedXor(nn.Module):
         self.weight_decay = weight_decay
         self.labels = labels
         self.split_dim = -1
-        print("Data Sparsity:")
-        print(self.weight)
+        log.debug(f"Data Sparsity: {self.weight}")
+
 
     def forward(self, output, target, w, hidden=None, **kwargs):
         relu = nn.ReLU()
@@ -79,8 +81,8 @@ class weightedXorVanilla(nn.Module):
         self.weight_decay = weight_decay
         self.labels = labels
         self.split_dim = -1
-        print("Data Sparsity:")
-        print(self.weight)
+        log.debug(f"Data Sparsity: {self.weight}")
+
 
     def forward(self, output, target, w, hidden=None, **kwargs):
         relu = nn.ReLU()
@@ -108,8 +110,8 @@ class weightedXorCover(nn.Module):
         self.labels = labels
         self.split_dim = -1
         self.alpha = alpha
-        print("Data Sparsity:")
-        print(self.weight)
+        log.debug(f"Data Sparsity: {self.weight}")
+
 
     def forward(self, output, target, w, hidden=None, **kwargs):
         relu = nn.ReLU()
@@ -157,8 +159,8 @@ class weightedXorUni(nn.Module):
         self.labels = labels
         self.split_dim = -1
         self.alpha = alpha
-        print("Data Sparsity:")
-        print(self.weight)
+        log.debug(f"Data Sparsity: {self.weight}")
+
 
     def forward(self, output, target, w, hidden=None):
         relu = nn.ReLU()

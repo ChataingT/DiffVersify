@@ -4,7 +4,9 @@ import numpy as np
 from scipy.stats import mode
 from sklearn.metrics import classification_report, f1_score
 import torch
+import logging
 
+log = logging.getLogger(__name__)
 def overlab_measure(pat,gt):
     nom = len(set(pat).intersection(set(gt)))
     denom = len(set(pat).union(set(gt)))
@@ -113,7 +115,14 @@ def mean_compute_metric(data, labels, dict_pat, device=torch.device("cpu")):
 
     # Pattern count
     ret['pat_count'] = len(pat_label)
-
+    log.debug(f"Pattern count : {len(pat_label)}")
+    if len(pat_label) == 0:
+        ret['cov']=0
+        ret['supp']=0
+        ret['purity']=0
+        ret['JD_pattern']=0
+        ret['wf1_quant']=0
+        return ret
     # Coverage
     cov = torch.clamp(embedding.sum(1), min=0, max=1)  # Cover by line
     ret['cov'] = (cov.sum() / len(cov)).cpu().numpy()  # Normalisation by data set size
@@ -163,6 +172,7 @@ def mean_compute_metric(data, labels, dict_pat, device=torch.device("cpu")):
     supp_class[np.where(supp_class == 0)] = np.nan  # switch 0 which are not a vote to NAN
     modes, count = mode(supp_class, axis=1, nan_policy='omit', keepdims=False)  #  Get most present vote 
     pred_label = modes - 1
+    print(np.unique(pred_label, return_counts=True))
     # report = classification_report(labels, pred_label, labels=np.unique(labels), output_dict=True, zero_division=0.0)
     # wf1_quant = report['weighted avg']['f1-score']
     # print("debug")
