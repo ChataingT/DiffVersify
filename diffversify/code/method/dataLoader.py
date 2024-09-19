@@ -6,6 +6,11 @@ import numpy as np
 import math
 from torch.utils.data import Dataset, DataLoader
 
+import logging
+
+log = logging.getLogger(__name__)
+
+
 def readDatFile(dat_file):
 
   ncol = -1
@@ -84,7 +89,7 @@ class DatDataset(Dataset):
         self.data = np.asarray(data)
     else:
         self.data = np.asarray(data)
-    print(self.data.dtype)
+    log.debug(self.data.dtype)
     self.sparsity = np.count_nonzero(self.data)/np.prod(self.data.shape)
     if is_training:
       ran = np.arange(0,math.ceil(train_proportion*self.data.shape[0]))

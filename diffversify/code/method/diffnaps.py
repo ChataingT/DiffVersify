@@ -173,10 +173,7 @@ def test(model, epoch, device_cpu, device_gpu, test_loader, lossFun, verbose=Tru
 
 
     _, target = next(iter(test_loader))
-    if verbose:
-        log.info('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
-    else:    
-        log.debug('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
+    log.debug('Test set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
     
 
 
@@ -209,7 +206,7 @@ def test_bin(model, device_cpu, device_gpu, test_loader, t_enc=0.3, t_class=0.9)
             gt.append(target[ind].cpu().numpy())
             incorret_pred.append(classi[ind].cpu().numpy())
     _, target = next(iter(test_loader))
-    log.info('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
+    log.debug('Test set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
     return incorret, incorret_pred, gt
 
 def test_c_bin(model, device_cpu, device_gpu, test_loader, t_enc=0.3, t_class=0.9):
@@ -240,7 +237,7 @@ def test_c_bin(model, device_cpu, device_gpu, test_loader, t_enc=0.3, t_class=0.
             gt.append(target[ind].cpu().numpy())
             incorret_pred.append(classi[ind].cpu().numpy())
     _, target = next(iter(test_loader))
-    log.info('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
+    log.debug('Test set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
     return incorret, incorret_pred, gt
 
 def test_normal(model, device_cpu, device_gpu, test_loader):
@@ -271,7 +268,7 @@ def test_normal(model, device_cpu, device_gpu, test_loader):
             gt.append(target[ind].cpu().numpy())
             incorret_pred.append(classi[ind].cpu().numpy())
     _, target = next(iter(test_loader))
-    log.info('\nTest set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
+    log.debug('Test set: Average loss: {:.6f}, Recon Accuracy: {}/{} ({:.0f}%), Classification Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, numel, 100. * correct / numel, correct_class, rows, 100. * correct_class / rows))
     return incorret, incorret_pred, gt
 
 def update_elb(config):

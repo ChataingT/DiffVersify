@@ -8,10 +8,12 @@ from torch.nn import init
 from torch.optim.lr_scheduler import MultiStepLR
 
 import numpy as np
-
+import logging
 import method.dataLoader as mydl
 import method.my_layers as myla
 import method.my_loss as mylo
+
+log = logging.getLogger(__name__)
 
 def initWeights(w, data):
     init.constant_(w, 0)
@@ -55,7 +57,7 @@ def train(model, device_cpu, device_gpu, train_loader, optimizer, lossFun, epoch
         model.clipWeights()
 
         if batch_idx % log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            log.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
         
@@ -91,7 +93,7 @@ def test(model, epoch, device_cpu, device_gpu, test_loader, lossFun, writer=None
                 writer.add_scalar(f'loss/test', loss.item(), step)
 
     _, target = next(iter(test_loader))
-    print('\nTest set: Average loss: {:.6f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+    log.debug('\nTest set: Average loss: {:.6f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, numel,
         100. * correct / numel))
 
@@ -134,7 +136,7 @@ def learn(input, lr, gamma, weight_decay, epochs, hidden_dim, train_set_size, ba
             # supp_half = (train_data.matmul(hn.cpu()) >= hn.sum().cpu()/2).sum().cpu().numpy()
             if hn.sum() >= 2:
                 # print(pat.cpu().numpy(), "(", supp_full, "/", supp_half, ")")
-                print(pat.cpu().numpy())
+                log.info(pat.cpu().numpy())
 
     return model, new_weights, trainDS
 
@@ -146,7 +148,7 @@ def learn_xp_binaps(data, config, labels = None, ret_test=False, verbose=True, w
 
     if not torch.cuda.is_available():
         device_gpu = device_cpu
-        print("WARNING: Running purely on CPU. Slow.")
+        log.warning("WARNING: Running purely on CPU. Slow.")
     else:
         device_gpu = torch.device("cuda")
     if labels is None:

@@ -276,7 +276,7 @@ def assign_pat(mp, labels, data):
 
 
 def compile_new_pat_whole(labels, patterns, data, device, n=2, max_iter=100, rank=15):
-    print('New pattern whole strategy')
+    log.info('Compile wew pattern with the whole strategy')
     labels = torch.tensor(labels).to(device)
     data = torch.tensor(data).to(device)
 
@@ -316,7 +316,7 @@ def compile_new_pat_whole(labels, patterns, data, device, n=2, max_iter=100, ran
     return new_p
 
 def compile_new_pat_by_class(labels, patterns, data, device, n=2, max_iter=100, rank=15):
-    print('New pattern filter strategy')
+    log.info('Compile new pattern with the filter strategy')
 
     labels = torch.tensor(labels).to(device)
     data = torch.tensor(data).to(device)
@@ -327,7 +327,6 @@ def compile_new_pat_by_class(labels, patterns, data, device, n=2, max_iter=100, 
     new_p = {k:dict() for k in n}
 
     for c in torch.unique(labels):
-        print(f"class {c.item()}")
         pc = patterns[str(c.item())]
         if len(pc) <=1:
             for k in n:
@@ -411,7 +410,7 @@ def nmf_binary(V, rank, max_iter=100, tol=1e-4, gpu=torch.device("cpu")):
         # Compute Frobenius norm of the residual
         residual = torch.norm(V - torch.mm(W, H))
         if residual < tol:
-            print('NMF one by threshold')
+            log.debug('NMF stoped by threshold')
             break
-    print(f"Residual : {residual}")
+    log.debug(f"NMF for {rank} Residual : {residual}")
     return W, H

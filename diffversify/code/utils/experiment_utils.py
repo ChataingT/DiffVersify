@@ -123,8 +123,8 @@ def res_to_csv(method, dataname, res_dict, data,labels,label_dict,translator,ver
     splitted_dataset = split_dataset(data, labels, label_dict,keep=True)
     tsv = "Label \t Pattern \t Pattern_num \t P(class|pattern) \t Supp in class \t Supp in data \n"
     for label_data, data_part in splitted_dataset.items():
-        print("#"*10 + str((label_dict[label_data])) + "#"*10)
-        print("Iter",label_data)
+        # print("#"*10 + str((label_dict[label_data])) + "#"*10)
+        # print("Iter",label_data)
         if not label_data  in res_dict.keys():
             continue
         for pat in res_dict[label_data]:
@@ -141,15 +141,13 @@ def res_to_csv(method, dataname, res_dict, data,labels,label_dict,translator,ver
                 if len(hit) > 1 and round(np.sum(hit)/len(hit)*100) > 0:
                     translated = list(map(lambda x: translator[x], pat))
                     if verbose:
-                        print(translated)
-                        print("Support in class: ", round(rel_supp_1,4),"%")
-                        print("Support in data: ",round(rel_supp_2,4),"%")
-                        print("Odds: ", round(odds,2))
-                        print("P(class=%s|pattern) = "%(label_dict[label_data]), round(np.sum(hit)/len(hit)*100,2), "%")
-                        print()
+                        log.info(translated)
+                        log.info("Support in class: ", round(rel_supp_1,4),"%")
+                        log.info("Support in data: ",round(rel_supp_2,4),"%")
+                        log.info("Odds: ", round(odds,2))
+                        log.info("P(class=%s|pattern) = "%(label_dict[label_data]), round(np.sum(hit)/len(hit)*100,2), "%")
                     strr = label_dict[label_data] + "\t" + str(translated) + "\t" + str(pat)+ "\t" +str(round(np.sum(hit)/len(hit)*100,2))+ "\t" +str(round(rel_supp_1,4)) + "\t" +str(round(rel_supp_2,4))  +"\n" 
                     tsv +=  strr
-    print(res_dict.keys())
     with open(os.path.join(folder,dataname+".json"),"w") as f:
         json.dump(res_dict, f, indent = 6,cls=NpEncoder)
 
@@ -187,10 +185,10 @@ def roc(res_dict, data,labels,label_dict,translator,verbose=False):
     auc = 0
     for label_data, data_part in splitted_dataset.items():
         if not label_data  in res_dict.keys():
-            print(f"{label_data} not in res_dict key")
+            log.warning(f"{label_data} not in res_dict key")
             continue
         if len(res_dict[label_data]) == 0:
-            print(f"{label_data} has no pattern")
+            log.warning(f"{label_data} has no pattern")
             continue
         spec = []
         line_x = np.arange(0,1.05,0.05)
@@ -203,9 +201,9 @@ def roc(res_dict, data,labels,label_dict,translator,verbose=False):
                     supp_2 = np.sum(np.sum(data[:,pat],axis=1)==(len(pat)))
                     rel_supp_2 = supp_2/(data.shape[0])*100
                 except IndexError as e:
-                    print(e)
-                    print(type(pat), pat)
-                    print(res_dict)
+                    log.error(e)
+                    log.error((type(pat), pat))
+                    log.error(res_dict)
                 if supp_1 < 1:
                     continue
                 if rel_supp_2>0.0001:

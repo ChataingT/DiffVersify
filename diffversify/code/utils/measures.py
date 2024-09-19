@@ -93,7 +93,8 @@ def mean_compute_metric(data, labels, dict_pat, device=torch.device("cpu")):
         pat_label.extend([int(key)]*len(value))
 
     if len(patterns) == 0:
-        return ret
+        log.error("No pattern found")
+        return None
     # Convert patterns from indice information to 1 in data format
     binary_pats = torch.zeros((len(patterns), data.shape[1])).to(device)
     for i in range(len(patterns)):
@@ -172,12 +173,8 @@ def mean_compute_metric(data, labels, dict_pat, device=torch.device("cpu")):
     supp_class[np.where(supp_class == 0)] = np.nan  # switch 0 which are not a vote to NAN
     modes, count = mode(supp_class, axis=1, nan_policy='omit', keepdims=False)  #  Get most present vote 
     pred_label = modes - 1
-    print(np.unique(pred_label, return_counts=True))
     # report = classification_report(labels, pred_label, labels=np.unique(labels), output_dict=True, zero_division=0.0)
     # wf1_quant = report['weighted avg']['f1-score']
-    # print("debug")
-    # print(np.isnan(pred_label).sum())
-    # print(pred_label)
     ret['wf1_quant'] = f1_score(y_true=labels.cpu().numpy(), y_pred=pred_label, labels=np.unique(labels.cpu().numpy()), average='weighted', zero_division=0.0)
     # Classification task 1, qualitative voting
     # pat_label_cal = np.array(pat_label) + 1  # +1 to label for calculus

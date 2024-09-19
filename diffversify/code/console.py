@@ -83,7 +83,7 @@ def main(args=None):
                         help='Contrastvive divergence weight (default: 1)')
     # parser.add_argument('--k_w', type=float, default=0.1,
     #                     help='Learning rate step gamma (default: 0.1)')
-    parser.add_argument('--k_f', type=float, default=100,
+    parser.add_argument('--k_f', type=int, default=100,
                         help='rank for NMF')
     parser.add_argument('--t1', type=float, default=0.01,
                         help='Threshold for binarization of the embedding')
@@ -183,10 +183,12 @@ def main(args=None):
 
     log.info("Get metrics without NMF")
     metric_result = {'method':args.method, 'db':os.path.basename(args.input), 'ktop':0, 'NMF':'_'}
-    metric_result.update(mean_compute_metric(data, labels, res_dict, device=device))
-    if metric_result['pat_count']==0:
-        logging.error('ALERT ! No pattern found !')
+
+    mr = mean_compute_metric(data, labels, res_dict, device=device)
+    if mr is None:
         return
+    metric_result.update(mr)
+    
     # line_x, line_y, auc = roc(res_dict_int, data,labels,label_dict,translator,verbose=False)
     # metric_result['roc_auc'] = auc
     
